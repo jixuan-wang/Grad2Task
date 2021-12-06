@@ -1,0 +1,14 @@
+output
+cache
+.vscode
+runs
+*.slrm
+wandb
+.ipynb_checkpoints/
+transformers/__pycache__/
+__pycache__/
+*.pyc
+*.pt
+*.png
+*.gif
+*.pk

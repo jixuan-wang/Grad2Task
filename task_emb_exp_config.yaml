@@ -1,0 +1,25 @@
+---
+do_lower_case: true                         # 
+max_seq_length: 128                         #
+num_support_batches: 1
+num_episodes_per_device: 5
+num_training_iterations: 1000000
+num_iterations_per_optimize_step: 1
+bert_linear_size: 256
+protonet_dist_metric: euc
+bn_context_size: 768
+learning_rate: 2.0e-05
+adam_epsilon: 1.0e-08
+warmup_steps_ratio: 0
+weight_decay: 0
+adapter_type: bn
+val_freq: 1000
+checkpoint_freq: 100
+cnap_freeze_base_model: true
+cnap_adapt: true
+early_stop_by: avg
+early_stop_patience: 10
+task_emb_size: 24
+min_shots: 2
+max_shots: 10
+bn_adapter_hidden_size: 16
