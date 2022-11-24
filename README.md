@@ -21,6 +21,8 @@ Download the dataset and unzip it under the main folder: https://drive.google.co
 
 If need to place it somewhere else, specify its path in `path.sh`.
 
+# Fine-tuning Baseline
+
 # Train & Evaluation
 To train/evaluate models:
 ```bash

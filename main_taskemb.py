@@ -20,7 +20,7 @@ from torch.autograd import grad
 from traitlets.traitlets import default
 
 from leopard_data import LeopardDataProcessor
-from main_learner import Learner
+from engine import Engine
 from modeling_task_emb import (FIMWithBNAdapter, FIMWithBNAdapterBatch,
                                FIMWithBNAdapterBatchTrueLabels)
 from utils import (MyDataParallel, ValidationAccuracies, aggregate_accuracy, loss)
@@ -28,7 +28,7 @@ from utils import (MyDataParallel, ValidationAccuracies, aggregate_accuracy, los
 import wandb
 from logging_utils import get_logger
 from main_meta_training import ALL_MODELS
-from main_meta_training import Learner as MetaLearner
+from engine import Engine
 from meta_dataset import MetaDatasetProcessor, RegularDatasetProcessor, TaskDataset
 from transformers import (WEIGHTS_NAME, AdamW, BertConfig, BertTokenizer,
                           get_linear_schedule_with_warmup)
@@ -67,7 +67,7 @@ class ValidationAccuracies:
     def get_current_best_accuracy_dict(self):
         return {"same_diff_auc": self.current_best_auc}
 
-class TaskembLearner(Learner):
+class TaskembLearner(Engine):
     """ Main class for training, evaluation and testing. """
     PRINT_FREQUENCY = 2
     NUM_TEST_TASKS=10
@@ -79,21 +79,26 @@ class TaskembLearner(Learner):
     CHECKPOINT_FILE_NAME = 'exp_checkpoint.pt'
     CHECKPOINT_DIR_NAME = {n:'checkpoint-'+n.upper() for n in ['current-best', 'latest', 'final']}
 
+
     def __init__(self, args):
         super().__init__(args)
 
-        # Init optimizer
-        if 'leopard' in self.args.model_type:
-            # MAML based models
-            self.optimizer = AdamW(self.model.meta_parameters(),
-                                lr=args.learning_rate, eps=args.adam_epsilon)
-        else:
-            self.optimizer = AdamW(self.model.parameters(),
-                                lr=args.learning_rate, eps=args.adam_epsilon)
-        self.optimizer.zero_grad()
-
+        self.optimizer = self.init_optimizer()
         self.validation_accuracies = ValidationAccuracies(early_stop_steps=self.args.early_stop_patience)
         self.start_iteration = 0
+    
+    def init_optimizer(self):
+        if 'leopard' in self.args.model_type:
+            parameters = self.model.meta_parameters()
+        else:
+            parameters = self.model.parameters()
+
+        optimizer = AdamW(parameters,
+                            lr=self.args.learning_rate, 
+                            eps=self.args.adam_epsilon)
+        optimizer.zero_grad()
+        return optimizer
+        
 
     def init_model(self):
         """ Initilize model, load pretrained model and tokenizer. """
@@ -118,7 +123,7 @@ class TaskembLearner(Learner):
         if self.args.bert_pretrained.lower() != 'none':
             logger.info('loading pretrained BERT model from ' + self.args.bert_pretrained)
             model.load_pretrained_encoder(torch.load(self.args.bert_pretrained)['model_state_dict'],
-                                               self.args.protonet_dist_metric)
+                                            self.args.protonet_dist_metric)
         model.to(self.device)
 
         return tokenizer, model
@@ -288,7 +293,7 @@ class TaskembLearner(Learner):
                         'labels': labels}, r_file)
             with open(os.path.join(test_dir, f'{num_shots}_shot_slurm_id'), 'w+') as f:
                 f.write(self.args.slurm_job_id)
-   
+    
     def analyze(self):
         # Init training dataset
         self.dataset = RegularDatasetProcessor(self.args,

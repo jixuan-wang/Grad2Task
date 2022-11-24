@@ -29,7 +29,7 @@ from utils import (MyDataParallel, ValidationAccuracies,
 
 import wandb
 from logging_utils import get_logger
-from main_learner import Learner
+from engine import Engine
 from meta_dataset import MetaDatasetProcessor
 from modeling_cnap import (CNAPCLSShiftScaleARPretrainedTaskEmb,
                            CNAPWithBNAdapter,
@@ -65,7 +65,7 @@ TEST_TASK_LIST = ["CoLA", "SciTail"]
 
 ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (BertConfig, )), ())
 
-class MetaLearner(Learner):
+class MetaLearner(Engine):
     """ Main class for training, evaluation and testing. """
     PRINT_FREQUENCY = 1000
     NUM_TEST_TASKS=10
@@ -353,6 +353,21 @@ class MetaLearner(Learner):
             accuracy_dict[task] = {"accuracy": accuracy, "confidence": confidence}
 
         return accuracy_dict
+
+    def run_test(self):
+        # test_lasest, test_best: resume previous experiments and test the latest/best model.
+        # test_checkpoing: load the model from another experiment given by the checkpoint file path.
+        if 'test_latest' in self.args.mode:
+            self.resume_from_latest_or_best(load_from_latest=True, exit_if_failed=True)
+        elif 'test_best' in self.args.mode:
+            self.resume_from_latest_or_best(load_from_latest=False, exit_if_failed=True)
+        elif 'test_checkpoint' in self.args.model and self.args.checkpoint_path is not None:
+                self.resume_from_checkpoint(self.args.checkpoint_path, model_only=True)
+        else:
+            raise ValueError('Exp mode not support: ' + self.args.mode)
+
+        self.setup_dataparallel()
+        self.test()
 
     def test(self):
         if '0526' in self.args.mode:
